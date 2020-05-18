@@ -152,7 +152,7 @@ wire   [5:0] JOY_MDIN  = JOY_FLAG[2] ? {USER_IN[6],USER_IN[3],USER_IN[5],USER_IN
 wire         JOY_DATA  = JOY_FLAG[1] ? USER_IN[5] : '1;
 assign       USER_OUT  = JOY_FLAG[2] ? {3'b111,JOY_SPLIT,3'b111,JOY_MDSEL} : JOY_FLAG[1] ? {6'b111111,JOY_CLK,JOY_LOAD} : snac ? {2'b11, snac_clr, 1'b1, snac_sel, 2'b11} : '1;
 assign       USER_MODE = JOY_FLAG[2:1] ;
-assign       USER_OSD  = joydb_1[10] & joydb_1[6]; // A�adir esto para OSD
+assign       USER_OSD  = joydb_1[10] & joydb_1[6];
 
 
 assign VGA_F1 = 0;
@@ -317,7 +317,6 @@ joy_db15 joy_db15
   .joystick1 ( JOYDB15_1 ),
   .joystick2 ( JOYDB15_2 )	  
 );
-
 
 hps_io #(.STRLEN($size(CONF_STR)>>3), .WIDE(1)) hps_io
 (
