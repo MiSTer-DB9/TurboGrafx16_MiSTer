@@ -26,6 +26,9 @@ entity huc6260 is
 		RVBL		: in std_logic;
 		DCC		: out std_logic_vector(1 downto 0);
 		
+		GRID_EN	: in std_logic;
+		BORDER_EN: in std_logic;
+		BORDER	: in std_logic;
 		GRID		: in std_logic;
 
 		-- NTSC/RGB Video Output
@@ -75,7 +78,7 @@ constant HS_CLOCKS		: integer := 192;
 
 constant TOTAL_LINES		: integer := 263;  -- 525
 constant VS_LINES			: integer := 3; 	 -- pcetech.txt
-constant TOP_BL_LINES_E	: integer := 19;   -- pcetech.txt (must include VS_LINES in current implementation)
+constant TOP_BL_LINES_E	: integer := 16;   -- pcetech.txt (must include VS_LINES in current implementation)
 constant DISP_LINES_E	: integer := 242;	 -- same as in mednafen
 signal TOP_BL_LINES		: integer;
 signal DISP_LINES			: integer;
@@ -93,7 +96,7 @@ signal CLKEN_FF	: std_logic;
 
 begin
 
-TOP_BL_LINES <= TOP_BL_LINES_E when RVBL = '1' else TOP_BL_LINES_E+3;
+TOP_BL_LINES <= TOP_BL_LINES_E when RVBL = '1' else TOP_BL_LINES_E+6;
 DISP_LINES   <= DISP_LINES_E   when RVBL = '1' else DISP_LINES_E-11;
 
 -- Color RAM
@@ -291,14 +294,18 @@ begin
 			VBL <= VBL_FF2;
 			HBL <= HBL_FF2;
 
-			if(GRID = '0') then
-				G <= COLOR(8 downto 6);
-				R <= COLOR(5 downto 3);
-				B <= COLOR(2 downto 0);
-			else
+			if BORDER = '1' and BORDER_EN = '0' then
+				G <= (others => '0');
+				R <= (others => '0');
+				B <= (others => '0');
+			elsif GRID = '1' and GRID_EN = '1' then
 				G <= (others => '1');
 				R <= (others => '1');
 				B <= (others => '1');
+			else
+				G <= COLOR(8 downto 6);
+				R <= COLOR(5 downto 3);
+				B <= COLOR(2 downto 0);
 			end if;
 		end if;
 	end if;
