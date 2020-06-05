@@ -1,4 +1,4 @@
-FROM 
+FROM theypsilon/quartus-lite-c5:17.0.2.docker0
 LABEL maintainer="theypsilon@gmail.com"
 WORKDIR /project
 ADD . /project
