@@ -169,7 +169,7 @@ assign VIDEO_ARY = (!ar) ? (overscan ? 8'd3 : 8'd37) : 12'd0;
 // 0         1         2         3
 // 01234567890123456789012345678901
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// X XXX XXXXXXXXXXXXXXXX XXXXXX
+// XXXXX XXXXXXXXXXXXXXXX XXXXXX
 
 `include "build_id.v"
 parameter CONF_STR = {
@@ -215,7 +215,7 @@ parameter CONF_STR = {
 `endif
 	"P2-;",
 	"P2OE,Arcade Card,Disabled,Enabled;",
-	"P2OP,CD Seek,Normal,Fast;",
+	"P2O1,CD Seek,Normal,Fast;",
 	"P2-;",
 	"P2oUV,UserIO Joystick,Off,DB9MD,DB15 ;",
 	"P2oT,UserIO Players, 1 Player,2 Players;",
@@ -562,7 +562,7 @@ always @(posedge clk_sys) begin
 		cd_reset_req_old <= cd_reset_req;
 		if (cd_comm_send && !cd_comm_send_old) begin
 			cd_in[95:0] <= cd_comm;
-			cd_in[111:96] <= {status[25],15'd0};
+			cd_in[111:96] <= {status[1],15'd0};
 			cd_in[112] <= ~cd_in[112];
 
 			comm_cnt <= comm_cnt + 8'd1;
