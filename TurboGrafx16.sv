@@ -455,7 +455,7 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 	.joystick_2(joy_2_USB),
 	.joystick_3(joy_3_USB),
 	.joystick_4(joy_4_USB),
-	.joystick_analog_0(joy_a),
+	.joystick_l_analog_0(joy_a),
 	.paddle_0(pd_0),
 
 	.joy_raw(OSD_STATUS? (joydb_1[5:0]|joydb_2[5:0]) : 6'b000000 ),
