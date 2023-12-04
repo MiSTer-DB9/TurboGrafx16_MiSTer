@@ -247,9 +247,8 @@ begin
 							CH_SEL <= not CH_SEL;
 							
 						when x"07" =>
-							if EXT_DI(7) = '1' then
-								BRAM_LOCK <= '0';
-							end if;
+						   BRAM_LOCK <= not EXT_DI(7);  -- unlock when bit 7 is '1', but also lock if bit 7 is '0'
+
 						when x"08" =>
 							ADPCM_OFFS(7 downto 0) <= EXT_DI;
 						when x"09" =>
@@ -454,15 +453,15 @@ begin
 					EXT_DO <= "000000" & not SCSI_RST_N & "0";
 				when x"05" =>
 					if CH_SEL = '1' then
-						EXT_DO <= CDDA_VOL_R(7 downto 0);
-					else
 						EXT_DO <= CDDA_VOL_L(7 downto 0);
+					else
+						EXT_DO <= CDDA_VOL_R(7 downto 0);
 					end if;
 				when x"06" =>
 					if CH_SEL = '1' then
-						EXT_DO <= CDDA_VOL_R(15 downto 8);
-					else
 						EXT_DO <= CDDA_VOL_L(15 downto 8);
+					else
+						EXT_DO <= CDDA_VOL_R(15 downto 8);
 					end if;
 				when x"07" =>
 					EXT_DO <= x"FF";
