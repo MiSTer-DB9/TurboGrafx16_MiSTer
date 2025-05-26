@@ -60,7 +60,8 @@ entity pce_top is
 		CD_RESET		: out std_logic;
 
 		CD_DATA		: in  std_logic_vector(7 downto 0);
-		CD_WR			: in  std_logic;
+		CD_DATA_WR	: in  std_logic;
+		CD_AUDIO_WR	: in  std_logic;
 		CD_DATA_END	: out std_logic;
 		CD_DM			: in  std_logic;
 
@@ -179,7 +180,7 @@ component CODES is
 	);
 end component;
 
-signal VCE_HS_F, VCE_HS_R, VCE_VS_F, VCE_VS_R: std_logic;
+signal VCE_HSYNC_F, VCE_HSYNC_R, VCE_VSYNC_F, VCE_VSYNC_R: std_logic;
 signal VRAM0_A	   : std_logic_vector(15 downto 0);
 signal VRAM0_DI	: std_logic_vector(15 downto 0);
 signal VRAM0_DO	: std_logic_vector(15 downto 0);
@@ -190,7 +191,6 @@ signal VRAM1_DO	: std_logic_vector(15 downto 0);
 signal VRAM1_WE	: std_logic;
 signal CLR_A	   : std_logic_vector(14 downto 0);
 signal CLR_WE		: std_logic;
-signal VCE_DCC		: std_logic_vector(1 downto 0);
 signal VDC0_BORDER: std_logic;
 signal VDC0_GRID	: std_logic_vector(1 downto 0);
 signal CPU_PRE_RD	: std_logic;
@@ -319,9 +319,12 @@ port map(
 	-- VDC Interface
 	COLNO		=> VDC_COLNO,
 	CLKEN		=> VDC_CLKEN,
+	HSYNC_F	=> VCE_HSYNC_F,
+	HSYNC_R	=> VCE_HSYNC_R,
+	VSYNC_F	=> VCE_VSYNC_F,
+	VSYNC_R	=> VCE_VSYNC_R,
 	CLKEN_FS => VIDEO_CE_FS,
 	RVBL		=> ReducedVBL,
-	DCC		=> VCE_DCC,
 	
 	GRID_EN	=> GRID_EN,
 	BORDER_EN=> BORDER_EN,
@@ -336,12 +339,7 @@ port map(
 	VS_N		=> VS_N,
 	HS_N		=> HS_N,
 	HBL		=> VIDEO_HBL,
-	VBL		=> VIDEO_VBL,
-	
-	HS_F		=> VCE_HS_F,
-	HS_R		=> VCE_HS_R,
-	VS_F		=> VCE_VS_F,
-	VS_R		=> VCE_VS_R
+	VBL		=> VIDEO_VBL
 );
 
 VDC0 : entity work.HUC6270
@@ -363,11 +361,10 @@ port map(
 
 	-- VCE Interface
 	DCK_CE	=> VDC_CLKEN,
-	DCC		=> VCE_DCC,
-	HS_F		=> VCE_HS_F,
-	HS_R		=> VCE_HS_R,
-	VS_F		=> VCE_VS_F,
-	VS_R		=> VCE_VS_R,
+	HSYNC_F	=> VCE_HSYNC_F,
+	HSYNC_R	=> VCE_HSYNC_R,
+	VSYNC_F	=> VCE_VSYNC_F,
+	VSYNC_R	=> VCE_VSYNC_R,
 	VD			=> VDC0_COLNO,
 	
 	BORDER	=> VDC0_BORDER,
@@ -421,11 +418,10 @@ generate_SGX: if (LITE = 0) generate begin
 
 		-- VCE Interface
 		DCK_CE	=> VDC_CLKEN,
-		DCC		=> VCE_DCC,
-		HS_F		=> VCE_HS_F,
-		HS_R		=> VCE_HS_R,
-		VS_F		=> VCE_VS_F,
-		VS_R		=> VCE_VS_R,
+		HSYNC_F	=> VCE_HSYNC_F,
+		HSYNC_R	=> VCE_HSYNC_R,
+		VSYNC_F	=> VCE_VSYNC_F,
+		VSYNC_R	=> VCE_VSYNC_R,
 		VD			=> VDC1_COLNO,
 		--GRID		=> VDC1_GRID,
 		
@@ -466,7 +462,7 @@ generate_SGX: if (LITE = 0) generate begin
 		DI			=> CPU_DO,
 		DO 		=> VPC_DO,
 		
-		HS_F		=> VCE_HS_F,
+		HS_F		=> VCE_HSYNC_F,
 		VDC0_IN  => VDC0_COLNO,
 		VDC1_IN  => VDC1_COLNO,
 		VDC_OUT  => VDC_COLNO,
@@ -659,7 +655,8 @@ port map(
 	CD_DOUT_SEND=> CD_DOUT_SEND,
 	
 	CD_DATA		=> CD_DATA,
-	CD_WR			=> CD_WR,
+	CD_DATA_WR	=> CD_DATA_WR,
+	CD_AUDIO_WR	=> CD_AUDIO_WR,
 	CD_DATA_END	=> CD_DATA_END,
 	
 	CD_REGION   => CD_REGION,
