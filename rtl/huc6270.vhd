@@ -10,9 +10,10 @@ entity HUC6270 is
 		CLR_MEM	: in std_logic;
 		  
 		CPU_CE	: in std_logic;
-		A			: in std_logic_vector(1 downto 0);
-		DI			: in std_logic_vector(7 downto 0);
-		DO			: out std_logic_vector(7 downto 0);
+		BYTEWORD : in std_logic;								-- 16-bit data = 0; 8-bit data = 1
+		A			: in std_logic_vector(1 downto 0);		-- if 16-bit data, A(0) probably = 0 and should be ignored in any case
+		DI			: in std_logic_vector(15 downto 0);
+		DO			: out std_logic_vector(15 downto 0);
 		CS_N		: in std_logic; 
 		WR_N  	: in std_logic;
 		RD_N  	: in std_logic;
@@ -20,6 +21,7 @@ entity HUC6270 is
 		IRQ_N		: out std_logic;
 		
 		DCK_CE	: in std_logic;
+		DCK_CE_F	: in std_logic;
 		HSYNC_F	: in std_logic;
 		HSYNC_R	: in std_logic;
 		VSYNC_F	: in std_logic;
@@ -126,6 +128,7 @@ architecture rtl of HUC6270 is
 	signal IRQ_VBL			: std_logic;
 	signal IO_BYRL_SET	: std_logic;
 	signal IO_BYRH_SET	: std_logic;
+	signal IO_BYRL_WR,IO_BYRH_WR : std_logic;
 	signal CPU_BUSY		: std_logic;
 	signal CPU_BUSY_CLEAR: std_logic;
 	signal CPURD_PEND 	: std_logic;
@@ -145,6 +148,7 @@ architecture rtl of HUC6270 is
 	signal DMAS_SAT_ADDR	: std_logic_vector(7 downto 0);
 	signal DMAS_VRAM_ADDR: std_logic_vector(15 downto 0);
 	signal DMAS_SAT_WE	: std_logic;
+	signal BXR_SET			: std_logic;
 	signal BYRL_SET		: std_logic;
 	signal BYRH_SET		: std_logic;
 	signal VDISP_OLD		: std_logic;
@@ -462,7 +466,7 @@ begin
 					RC_CNT_UPDATED := '1';
 				end if;
 				
-				if TILE_CNT = HDS_END_POS - 3 and DOT_CNT = 7 then
+				if TILE_CNT = HDS_END_POS - 3 and DOT_CNT = 6 then
 					BB <= CR_BB;
 					SB <= CR_SB;
 				end if;
@@ -719,7 +723,7 @@ begin
 					OFS_Y <= NEW_OFS_Y + 1;
 				end if; 
 				
-				if TILE_CNT = HDS_END_POS - 3 and DOT_CNT = 7 then
+				if BXR_SET = '1' then
 					OFS_X <= unsigned(BXR);
 				end if; 
 			end if; 
@@ -825,13 +829,14 @@ begin
 					SPR_EVAL <= '0';
 				end if;
 				
-				if ((DOT_CNT = 7 and TILE_CNT = HDISP_END_POS) or (DOT_CNT = 7 and TILE_CNT = 0 and DISP_BREAK_LATCH = '1')) and DISP_CNT >= VDS_END_POS and DISP_CNT < VDISP_END_POS and SPR_FETCH = '0' then
+				if ((DOT_CNT = 7 and TILE_CNT = HDISP_END_POS                and DISP_CNT >= VDS_END_POS and DISP_CNT <  VDISP_END_POS) or 
+				    (DOT_CNT = 7 and TILE_CNT = 0 and DISP_BREAK_LATCH = '1' and DISP_CNT >  VDS_END_POS and DISP_CNT <= VDISP_END_POS)) and SPR_FETCH = '0' then
 					SPR_FETCH <= '1';
 					SPR_FETCH_EN <= CR_SB and SPR_FIND;
 					SPR_FETCH_CNT <= (others=>'0');
 					SPR_FETCH_W <= '0';
 					SPR_FETCH_DONE <= '0';
-				elsif TILE_CNT = HDS_END_POS - 2 and DOT_CNT = 7 and DISP_CNT > VDS_END_POS and DISP_CNT <= VDISP_END_POS then
+				elsif TILE_CNT = HDS_END_POS - 2 and DOT_CNT = 7 then
 					SPR_FETCH <= '0';
 				end if;
 
@@ -961,7 +966,7 @@ begin
 				end if;
 			end if; 
 			
-			if A = "00" and CS_N = '0' and RD_N = '0' and CPU_CE = '1' then
+			if CS_N = '0' and RD_N = '0' and CPU_CE = '1' and A(1) = '0' and (BYTEWORD = '0' or A(0) = '0') then
 				IRQ_OVF <= '0';						
 			end if; 
 		end if;
@@ -1029,7 +1034,7 @@ begin
 				end if;
 			end if;
 			
-			if A = "00" and CS_N = '0' and RD_N = '0' and CPU_CE = '1' then
+			if CS_N = '0' and RD_N = '0' and CPU_CE = '1' and A(1) = '0' and (BYTEWORD = '0' or A(0) = '0') then
 				IRQ_COL <= '0';
 			end if; 
 		end if;
@@ -1170,85 +1175,118 @@ begin
 			BYRH_SET <= '0';
 			VDISP_OLD <= '0';
 		elsif rising_edge(CLK) then
+			IO_BYRL_WR <= '0';
+			IO_BYRH_WR <= '0';
 			if CS_N = '0' and WR_N = '0' and CPU_CE = '1' then
-				case A is
-					when "00" =>
-						AR <= DI(4 downto 0);
-						
-					when "10" =>
-						case AR is
-							when "00000" =>
-								REGS(0)(7 downto 0) <= DI;
-							when "00001" =>
-								if CPU_BUSY = '0' then
-									REGS(1)(7 downto 0) <= DI;
-								end if;
-							when "00010" =>
-								if CPU_BUSY = '0' then
-									REGS(2)(7 downto 0) <= DI;
-								end if;
-							when "01000" =>
-								IO_BYRL_SET <= '1';
-							when others => null;
-						end case;
-						if AR >= "00011" then
-							REGS(to_integer(unsigned(AR)))(7 downto 0) <= DI;
+				case A(1) is
+					when '0' =>
+						if (BYTEWORD = '0' or A(0) = '0') then		-- if 16-bit access or 8-bit access to "00"
+							AR <= DI(4 downto 0);
 						end if;
 						
-					when "11" =>
+					when '1' =>
 						case AR is
 							when "00000" =>
-								REGS(0)(15 downto 8) <= DI;
+								if BYTEWORD = '0' then
+									REGS(0)(15 downto 0) <= DI(15 downto 0);
+								elsif A(0) = '0' then
+									REGS(0)(7 downto 0) <= DI(7 downto 0);
+								else
+									REGS(0)(15 downto 8) <= DI(7 downto 0);
+								end if;
 							when "00001" =>
 								if CPU_BUSY = '0' then
-									REGS(1)(15 downto 8) <= DI;
-									CPURD_PEND <= '1';
-									CPU_BUSY <= '1';
+									if BYTEWORD = '0' then
+										REGS(1)(15 downto 0) <= DI(15 downto 0);
+										CPURD_PEND <= '1';
+										CPU_BUSY <= '1';
+									elsif A(0) = '0' then
+										REGS(1)(7 downto 0) <= DI(7 downto 0);
+									else
+										REGS(1)(15 downto 8) <= DI(7 downto 0);
+										CPURD_PEND <= '1';
+										CPU_BUSY <= '1';
+									end if;
 								end if;
 							when "00010" =>
 								if CPU_BUSY = '0' then
-									REGS(2)(15 downto 8) <= DI;
-									CPUWR_PEND <= '1';
-									CPU_BUSY <= '1';
+									if BYTEWORD = '0' then
+										REGS(2)(15 downto 0) <= DI(15 downto 0);
+										CPUWR_PEND <= '1';
+										CPU_BUSY <= '1';
+									elsif A(0) = '0' then
+										REGS(2)(7 downto 0) <= DI(7 downto 0);
+									else
+										REGS(2)(15 downto 8) <= DI(7 downto 0);
+										CPUWR_PEND <= '1';
+										CPU_BUSY <= '1';
+									end if;
 								end if;
 							when "01000" =>
-								IO_BYRH_SET <= '1';
+								if BYTEWORD = '0' then
+									IO_BYRL_WR <= '1';
+									IO_BYRH_WR <= '1';
+								elsif A(0) = '0' then
+									IO_BYRL_WR <= '1';
+								else
+									IO_BYRH_WR <= '1';
+								end if;
 							when "10010" =>
-								DMA_PEND <= '1';
+								if (BYTEWORD = '0' or A(0) = '1') then	-- if 16-bit access or 8-bit access to "11"
+									DMA_PEND <= '1';
+								end if;
 							when "10011" =>
-								DMAS_PEND <= '1';
+								if (BYTEWORD = '0' or A(0) = '1') then	-- if 16-bit access or 8-bit access to "11"
+									DMAS_PEND <= '1';
+								end if;
 							when others => null;
 						end case;
 						if AR >= "00011" then
-							REGS(to_integer(unsigned(AR)))(15 downto 8) <= DI;
+							if BYTEWORD = '0' then
+								REGS(to_integer(unsigned(AR)))(15 downto 0) <= DI(15 downto 0);
+							elsif A(0) = '0' then
+								REGS(to_integer(unsigned(AR)))(7 downto 0) <= DI(7 downto 0);
+							else
+								REGS(to_integer(unsigned(AR)))(15 downto 8) <= DI(7 downto 0);
+							end if;
 						end if;
 						
 					when others => null;
 				end case;
 			elsif CS_N = '0' and RD_N = '0' and CPU_CE = '1' then
-				case A is
-					when "00" =>
-						if SR_LATCH(5) = '1' then
-							IRQ_VBL <= '0';	
+				case A(1) is
+					when '0' =>
+						if (BYTEWORD = '0' or A(0) = '0') then		-- if 16-bit access or 8-bit access to "00"
+							if SR_LATCH(5) = '1' then
+								IRQ_VBL <= '0';	
+							end if;
+							if SR_LATCH(4) = '1' then
+								IRQ_DMA <= '0';
+							end if;
+							if SR_LATCH(3) = '1' then
+								IRQ_DMAS <= '0';
+							end if;
+							if SR_LATCH(2) = '1' then
+								IRQ_RCR <= '0';
+							end if;
 						end if;
-						if SR_LATCH(4) = '1' then
-							IRQ_DMA <= '0';
-						end if;
-						if SR_LATCH(3) = '1' then
-							IRQ_DMAS <= '0';
-						end if;
-						if SR_LATCH(2) = '1' then
-							IRQ_RCR <= '0';
-						end if;
-					when "10" =>
-					when "11" =>
-						if AR = "0" & x"2" then
-							CPURD_PEND <= '1';
-							CPU_BUSY <= '1';						
+					when '1' =>
+						if (BYTEWORD = '0' or A(0) = '1') then		-- if 16-bit access or 8-bit access to "11"
+							if AR = "0" & x"2" then
+								CPURD_PEND <= '1';
+								CPU_BUSY <= '1';						
+							end if;
 						end if;
 					when others => null;
 				end case;
 			end if; 
+			
+			if IO_BYRL_WR = '1' then
+				IO_BYRL_SET <= '1';
+			end if; 
+			if IO_BYRH_WR = '1' then
+				IO_BYRH_SET <= '1';
+			end if;
 			
 			if DCK_CE = '1' then
 				if DOT_CNT(0) = '1' then
@@ -1359,20 +1397,29 @@ begin
 					IRQ_RCR <= '1';
 				end if;
 				
-				--sync BYRx latches to dot clock
-				if IO_BYRL_SET = '1' then
-					IO_BYRL_SET <= '0';
-					BYRL_SET <= '1';
-				end if;
-				if IO_BYRH_SET = '1' then
-					IO_BYRH_SET <= '0';
-					BYRH_SET <= '1';
-				end if;
+				if TILE_CNT = HDS_END_POS - 3 and DOT_CNT = 7 then
+					BXR_SET <= '1';
+				else 
+					BXR_SET <= '0';
+				end if; 
 				
 				if TILE_CNT = HDS_END_POS - 3 and DOT_CNT = 7 then
 					BYRL_SET <= '0';
 					BYRH_SET <= '0';
+				end if;
+			end if;
+				
+			if DCK_CE_F = '1' then
+				--sync BYRx latches to dot clock
+				if IO_BYRL_SET = '1' then
+					IO_BYRL_SET <= '0';
+					BYRL_SET <= '1';
 				end if; 
+				
+				if IO_BYRH_SET = '1' then
+					IO_BYRH_SET <= '0';
+					BYRH_SET <= '1';
+				end if;
 			end if;
 		end if;
 	end process;
@@ -1390,16 +1437,17 @@ begin
 		end if;
 	end process;
 
-	process(A, SR_LATCH, VRR)
+	process(A, BYTEWORD, SR_LATCH, VRR)
 	begin
-		DO <= x"00";
-		case A is
-			when "00" =>
-				DO <= "0" & SR_LATCH;
-			when "10" =>
-				DO <= VRR(7 downto 0);
-			when "11" =>
-				DO <= VRR(15 downto 8);
+		DO <= x"0000";
+		case A(1) is
+			when '0' =>
+				DO <= "000000000" & SR_LATCH;
+			when '1' =>
+				DO <= VRR(15 downto 0);
+				if (BYTEWORD = '1' and A(0) = '1') then
+					DO <= "00000000"  & VRR(15 downto 8);
+				end if;
 			when others => null;
 		end case;
 	end process;

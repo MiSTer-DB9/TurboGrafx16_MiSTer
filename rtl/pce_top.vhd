@@ -62,6 +62,7 @@ entity pce_top is
 		CD_DATA		: in  std_logic_vector(7 downto 0);
 		CD_DATA_WR	: in  std_logic;
 		CD_AUDIO_WR	: in  std_logic;
+		CD_SUBCD_WR	: in  std_logic;			-- subcode data
 		CD_DATA_END	: out std_logic;
 		CD_DM			: in  std_logic;
 
@@ -127,15 +128,18 @@ signal CPU_PRAM_SEL_N: std_logic;
 signal VCE_DO			: std_logic_vector(7 downto 0);
 
 -- VDC signals
-signal VDC0_DO			: std_logic_vector(7 downto 0);
+signal VDC0_DO			: std_logic_vector(15 downto 0);		-- only lower 8 bits are used in 8-bit mode
+alias  VDC0_DO_LO		: std_logic_vector(7 downto 0) is VDC0_DO(7 downto 0);
 signal VDC0_BUSY_N	: std_logic;
 signal VDC0_IRQ_N		: std_logic;
 signal VDC0_COLNO		: std_logic_vector(8 downto 0);
-signal VDC1_DO			: std_logic_vector(7 downto 0);
+signal VDC1_DO			: std_logic_vector(15 downto 0);		-- only lower 8 bits are used in 8-bit mode
+alias  VDC1_DO_LO		: std_logic_vector(7 downto 0) is VDC1_DO(7 downto 0);
 signal VDC1_BUSY_N	: std_logic;
 signal VDC1_IRQ_N		: std_logic;
 signal VDC1_COLNO		: std_logic_vector(8 downto 0);
 signal VDC_CLKEN		: std_logic;
+signal VDC_CLKEN_F	: std_logic;
 signal VPC_DO			: std_logic_vector(7 downto 0);
 signal VDCNUM    		: std_logic;
 signal VDC_COLNO		: std_logic_vector(8 downto 0);
@@ -319,6 +323,7 @@ port map(
 	-- VDC Interface
 	COLNO		=> VDC_COLNO,
 	CLKEN		=> VDC_CLKEN,
+	CLKEN_F  => VDC_CLKEN_F,
 	HSYNC_F	=> VCE_HSYNC_F,
 	HSYNC_R	=> VCE_HSYNC_R,
 	VSYNC_F	=> VCE_VSYNC_F,
@@ -350,17 +355,19 @@ port map(
 
 	-- CPU Interface
 	CPU_CE	=> CPU_CE,
+	BYTEWORD => '1',						-- 8-bit access
 	A			=> CPU_A(1 downto 0),
 	CS_N		=> CPU_VDC0_SEL_N,
 	WR_N		=> CPU_WR_N,
 	RD_N		=> CPU_RD_N,
-	DI			=> CPU_DO,
+	DI			=> "00000000" & CPU_DO,
 	DO 		=> VDC0_DO,
 	BUSY_N	=> VDC0_BUSY_N,
 	IRQ_N		=> VDC0_IRQ_N,
 
 	-- VCE Interface
 	DCK_CE	=> VDC_CLKEN,
+	DCK_CE_F => VDC_CLKEN_F,
 	HSYNC_F	=> VCE_HSYNC_F,
 	HSYNC_R	=> VCE_HSYNC_R,
 	VSYNC_F	=> VCE_VSYNC_F,
@@ -407,17 +414,19 @@ generate_SGX: if (LITE = 0) generate begin
 
 		-- CPU Interface
 		CPU_CE	=> CPU_CE,
+		BYTEWORD => '1',						-- 8-bit access
 		A			=> CPU_A(1 downto 0),
 		CS_N		=> CPU_VDC1_SEL_N,
 		WR_N		=> CPU_WR_N,
 		RD_N		=> CPU_RD_N,
-		DI			=> CPU_DO,
+		DI			=> "00000000" & CPU_DO,
 		DO 		=> VDC1_DO,
 		BUSY_N	=> VDC1_BUSY_N,
 		IRQ_N		=> VDC1_IRQ_N,
 
 		-- VCE Interface
 		DCK_CE	=> VDC_CLKEN,
+		DCK_CE_F => VDC_CLKEN_F,
 		HSYNC_F	=> VCE_HSYNC_F,
 		HSYNC_R	=> VCE_HSYNC_R,
 		VSYNC_F	=> VCE_VSYNC_F,
@@ -512,17 +521,17 @@ CPU_BRM_SEL_N <= '0' when CPU_A(20 downto 11) = x"F7"&"00" and CD_BRAM_EN = '1' 
 CPU_ROM_SEL_N <= CPU_A(20);
 
 -- CPU data bus
-CPU_DI <= RAM_DO        when CPU_RAM_SEL_N  = '0'
-			else CD_DO     when CD_SEL_N       = '0'
-			else CD_RAM_DI when CD_RAM_CS_N    = '0' or AC_RAM_CS_N = '0'
-			else AC_DO     when AC_SEL_N       = '0'
-			else BRM_DO    when CPU_BRM_SEL_N  = '0'
-			else PRAM_DO   when CPU_PRAM_SEL_N = '0'
-			else ROM_DO    when CPU_ROM_SEL_N  = '0'
-			else VCE_DO    when CPU_VCE_SEL_N  = '0'
-			else VDC0_DO   when CPU_VDC0_SEL_N = '0'
-			else VDC1_DO   when CPU_VDC1_SEL_N = '0'
-			else VPC_DO    when CPU_VPC_SEL_N  = '0'
+CPU_DI <= RAM_DO         when CPU_RAM_SEL_N  = '0'
+			else CD_DO      when CD_SEL_N       = '0'
+			else CD_RAM_DI  when CD_RAM_CS_N    = '0' or AC_RAM_CS_N = '0'
+			else AC_DO      when AC_SEL_N       = '0'
+			else BRM_DO     when CPU_BRM_SEL_N  = '0'
+			else PRAM_DO    when CPU_PRAM_SEL_N = '0'
+			else ROM_DO     when CPU_ROM_SEL_N  = '0'
+			else VCE_DO     when CPU_VCE_SEL_N  = '0'
+			else VDC0_DO_LO when CPU_VDC0_SEL_N = '0'
+			else VDC1_DO_LO when CPU_VDC1_SEL_N = '0'
+			else VPC_DO     when CPU_VPC_SEL_N  = '0'
 			else X"FF";
 
 -- Perform address mangling to mimic HuCard chip mapping.
@@ -657,6 +666,7 @@ port map(
 	CD_DATA		=> CD_DATA,
 	CD_DATA_WR	=> CD_DATA_WR,
 	CD_AUDIO_WR	=> CD_AUDIO_WR,
+	CD_SUBCD_WR	=> CD_SUBCD_WR,
 	CD_DATA_END	=> CD_DATA_END,
 	
 	CD_REGION   => CD_REGION,
