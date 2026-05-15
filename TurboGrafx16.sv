@@ -239,7 +239,8 @@ joydb joydb (
   .joy_raw         ( joy_raw_payload )
 );
 
-assign USER_OUT = USER_OUT_DRIVE;
+// USER_OUT driven at the SNAC code site below (SNAC strobes take priority,
+// else joydb wrapper USER_OUT_DRIVE) — mirrors upstream's USER_OUT location.
 // [MiSTer-DB9 END]
 
 assign VGA_F1 = 0;
@@ -1235,6 +1236,10 @@ end
 
 wire [1:0] joy_out;
 wire [3:0] joy_in = snac ? snac_dat : (mb128_ena & mb128_Active) ? mb128_Data : joy_latch;
+
+// [MiSTer-DB9 BEGIN] - SNAC USER_OUT strobes take priority; else joydb wrapper
+assign USER_OUT = snac ? {2'b11, snac_clr, 1'b1, snac_sel, 2'b11} : USER_OUT_DRIVE;
+// [MiSTer-DB9 END]
 
 wire xe1_trg1;
 wire xe1_trg2;
