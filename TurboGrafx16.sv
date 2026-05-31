@@ -203,6 +203,12 @@ wire         joy_2p          = status[125];
 // SNAC cores: replace 1'b0 with the core's SNAC enable expression so SNAC
 // preempts the joydb wrapper on shared USER_IO pins. Default 1'b0 is no-op.
 wire         snac_active     = snac;
+// MT32-pi probe-suppression gate. Auto-detected from MT32 signals declared
+// elsewhere in this file (mt32_disable / mt32_use / mt32_on_primary). Hand-edit
+// if the heuristic missed your core's gate expression. Suppresses the OSD-open
+// autodetect probe so it doesn't read the RPi's I2C master traffic as a ghost
+// Saturn signature. See the fork hazard notes.
+wire         mt32_primary_active = 1'b0;
 wire   [1:0] joy_type        = snac_active ? 2'd0 : joy_type_raw;
 wire         joy_db9md_en    = (joy_type == 2'd2);
 wire         joy_db15_en     = (joy_type == 2'd3);
@@ -226,6 +232,9 @@ wire  [15:0] joy_raw_payload;
 joydb joydb (
   .clk             ( CLK_JOY         ),
   .USER_IN         ( USER_IN         ),
+  .OSD_STATUS          ( OSD_STATUS          ),
+  .snac_active         ( snac_active         ),
+  .mt32_primary_active ( mt32_primary_active ),
   .joy_type        ( joy_type        ),
   .joy_2p          ( joy_2p          ),
   .saturn_unlocked ( saturn_unlocked ),
@@ -239,7 +248,8 @@ joydb joydb (
   .joy_raw         ( joy_raw_payload )
 );
 
-assign USER_OUT = USER_OUT_DRIVE;
+// USER_OUT driven at the SNAC code site below (SNAC strobes take priority,
+// else joydb wrapper USER_OUT_DRIVE) — mirrors upstream's USER_OUT location.
 // [MiSTer-DB9 END]
 
 assign VGA_F1 = 0;
@@ -1235,6 +1245,10 @@ end
 
 wire [1:0] joy_out;
 wire [3:0] joy_in = snac ? snac_dat : (mb128_ena & mb128_Active) ? mb128_Data : joy_latch;
+
+// [MiSTer-DB9 BEGIN] - SNAC USER_OUT strobes take priority; else joydb wrapper
+assign USER_OUT = snac ? {2'b11, snac_clr, 1'b1, snac_sel, 2'b11} : USER_OUT_DRIVE;
+// [MiSTer-DB9 END]
 
 wire xe1_trg1;
 wire xe1_trg2;
